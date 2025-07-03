@@ -18,9 +18,13 @@ df = None # Initialize df outside the if block
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
-        # --- DIAGNOSTIC LINE: UNCOMMENT TO SEE YOUR CSV'S COLUMN NAMES ---
-        # st.write("Columns in your uploaded CSV:", df.columns.tolist())
-        # --- REMEMBER TO COMMENT THIS LINE OUT AFTER YOU'VE VERIFIED NAMES ---
+        # --- IMPORTANT DIAGNOSTIC STEP ---
+        # UNCOMMENT THE LINE BELOW to see the exact column names in your uploaded CSV.
+        # This will print a list of your CSV's columns at the top of your Streamlit app.
+        # Example output: "Columns in your uploaded CSV: ['Order ID', 'Total Revenue', 'Net Profit']"
+        st.write("Columns in your uploaded CSV:", df.columns.tolist())
+        # --- REMEMBER TO COMMENT THIS LINE OUT OR REMOVE IT AFTER YOU'VE USED IT ---
+
         st.sidebar.success("CSV loaded successfully!")
     except Exception as e:
         st.error(f"Error loading CSV file: {e}. Please ensure it's a valid CSV.")
@@ -43,10 +47,11 @@ if df is not None:
         st.error("DataFrame is empty after cleaning 'Date' column. Please check your CSV data.")
         st.stop()
 
-    # Define columns expected to be numeric
-    # >>> IMPORTANT: You MUST adjust the names in this list to EXACTLY match your CSV's headers <<<
-    # Use the output from `st.write("Columns in your uploaded CSV:", df.columns.tolist())`
-    # to get the correct names (case-sensitive, including spaces/underscores).
+    # --- Define columns expected to be numeric ---
+    # >>> CRITICAL STEP: YOU MUST ADJUST THE NAMES IN THIS LIST <<<
+    # Compare the output from `st.write(df.columns.tolist())` with this list.
+    # The names here (e.g., 'Units Sold') MUST EXACTLY MATCH your CSV's headers
+    # (case-sensitive, including spaces, underscores, etc.).
     expected_numeric_cols = [
         'Units Sold', 'Manufacturing Price', 'Sale Price', 'Gross Sales',
         'Discounts', 'Sales', 'COGS', 'Profit'
@@ -57,11 +62,13 @@ if df is not None:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         else:
+            # This warning appears if a column from `expected_numeric_cols` is missing
             st.warning(f"Warning: Column '{col}' not found in your CSV. It will be skipped for numerical calculations.")
 
-    # --- Ensure essential columns for core calculations exist ---
-    # >>> IMPORTANT: Adjust these names too if they differ in your CSV <<<
-    # These columns are critical for the dashboard's main KPIs and charts.
+    # --- Ensure essential columns for core dashboard calculations exist ---
+    # >>> CRITICAL STEP: YOU MUST ADJUST THESE NAMES TOO <<<
+    # These columns are fundamental for the dashboard's main KPIs and charts.
+    # If any of these are missing after you've checked your CSV, the app will stop.
     required_cols_for_dashboard = ['Gross Sales', 'Sales', 'Profit', 'Units Sold']
     for col in required_cols_for_dashboard:
         if col not in df.columns:
@@ -79,6 +86,7 @@ if df is not None:
     st.sidebar.header("Filter Data")
 
     # Segment Filter
+    # >>> Check if 'Segment' column exists in your CSV, if not, filter will be skipped. <<<
     if 'Segment' in df.columns:
         all_segments = sorted(df['Segment'].unique().tolist())
         selected_segments = st.sidebar.multiselect("Select Segment(s)", all_segments, default=all_segments)
@@ -87,6 +95,7 @@ if df is not None:
         selected_segments = [] # No segments to filter if column is missing
 
     # Country Filter
+    # >>> Check if 'Country' column exists in your CSV, if not, filter will be skipped. <<<
     if 'Country' in df.columns:
         all_countries = sorted(df['Country'].unique().tolist())
         selected_countries = st.sidebar.multiselect("Select Country(ies)", all_countries, default=all_countries)
@@ -115,8 +124,7 @@ if df is not None:
 
     # --- Reset Filters Button ---
     if st.sidebar.button("Reset All Filters"):
-        # This will re-run the script with default selections
-        st.experimental_rerun()
+        st.experimental_rerun() # This will re-run the script with default selections
 
     # --- 2. Key Performance Indicators (KPIs) ---
     st.subheader("Key Performance Indicators")
@@ -134,7 +142,7 @@ if df is not None:
 
     with kpi_col1:
         st.metric("Total Units Sold", f"{total_units_sold:,.0f}")
-    with kpi_col2: # Corrected from `kpi2` to `kpi_col2`
+    with kpi_col2: # Corrected variable name from `kpi2` to `kpi_col2`
         st.metric("Total Gross Sale", f"${total_gross_sale:,.2f}")
     with kpi_col3:
         st.metric("Total Profit", f"${total_profit:,.2f}")
@@ -187,7 +195,7 @@ if df is not None:
                 fig_month, ax_month = plt.subplots(figsize=(12, 6))
                 # Ensure all 12 months are represented on the x-axis, even if no data for a specific month
                 month_order_labels = [calendar.month_name[i] for i in range(1, 13)] # Full month names
-                
+
                 sns.lineplot(x='Month Name', y='Profit', hue='Year', data=monthly_profit, marker='o', ax=ax_month, palette='magma', errorbar=None)
                 ax_month.set_title('Profit by Month')
                 ax_month.set_xlabel('Month')
