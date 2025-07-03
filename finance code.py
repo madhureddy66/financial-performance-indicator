@@ -18,9 +18,9 @@ df = None # Initialize df outside the if block
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
-        # --- ADD THIS LINE TO DEBUG YOUR COLUMN NAMES ---
-        st.write("Columns in your uploaded CSV:", df.columns.tolist())
-        # --- END OF DEBUG LINE ---
+        # --- DIAGNOSTIC LINE: UNCOMMENT TO SEE YOUR CSV'S COLUMN NAMES ---
+        # st.write("Columns in your uploaded CSV:", df.columns.tolist())
+        # --- REMEMBER TO COMMENT THIS LINE OUT AFTER YOU'VE VERIFIED NAMES ---
         st.sidebar.success("CSV loaded successfully!")
     except Exception as e:
         st.error(f"Error loading CSV file: {e}. Please ensure it's a valid CSV.")
@@ -31,7 +31,7 @@ else:
 
 # --- Data Preprocessing and Calculated Fields ---
 if df is not None:
-    # Ensure 'Date' column is in datetime format
+    # --- Date Column Handling ---
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df.dropna(subset=['Date'], inplace=True) # Drop rows where date conversion failed
@@ -44,8 +44,9 @@ if df is not None:
         st.stop()
 
     # Define columns expected to be numeric
-    # IMPORTANT: After running the app with the debug line, compare the list of columns
-    # printed by Streamlit with this list. They MUST match exactly (case, spaces, spelling).
+    # >>> IMPORTANT: You MUST adjust the names in this list to EXACTLY match your CSV's headers <<<
+    # Use the output from `st.write("Columns in your uploaded CSV:", df.columns.tolist())`
+    # to get the correct names (case-sensitive, including spaces/underscores).
     expected_numeric_cols = [
         'Units Sold', 'Manufacturing Price', 'Sale Price', 'Gross Sales',
         'Discounts', 'Sales', 'COGS', 'Profit'
@@ -56,17 +57,15 @@ if df is not None:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         else:
-            # This warning will appear if a column from `expected_numeric_cols` is missing
             st.warning(f"Warning: Column '{col}' not found in your CSV. It will be skipped for numerical calculations.")
-            # If a critical column is missing, you might want to stop or handle differently
-            # For now, it will just not be used in calculations if it's missing.
 
-    # Ensure essential columns for calculations exist after processing
-    # If any of these are still missing, subsequent calculations might fail or be incorrect.
-    required_cols = ['Gross Sales', 'Sales', 'Profit', 'Units Sold']
-    for col in required_cols:
+    # --- Ensure essential columns for core calculations exist ---
+    # >>> IMPORTANT: Adjust these names too if they differ in your CSV <<<
+    # These columns are critical for the dashboard's main KPIs and charts.
+    required_cols_for_dashboard = ['Gross Sales', 'Sales', 'Profit', 'Units Sold']
+    for col in required_cols_for_dashboard:
         if col not in df.columns:
-            st.error(f"Error: Required column '{col}' is missing after data processing. Cannot proceed with dashboard calculations.")
+            st.error(f"Error: Required column '{col}' is missing or named differently in your CSV. Please correct your CSV or adjust the `required_cols_for_dashboard` list in the code to match.")
             st.stop()
 
 
@@ -85,7 +84,7 @@ if df is not None:
         selected_segments = st.sidebar.multiselect("Select Segment(s)", all_segments, default=all_segments)
     else:
         st.sidebar.warning("Column 'Segment' not found for filtering.")
-        selected_segments = df['Segment'].unique().tolist() if 'Segment' in df.columns else []
+        selected_segments = [] # No segments to filter if column is missing
 
     # Country Filter
     if 'Country' in df.columns:
@@ -93,7 +92,7 @@ if df is not None:
         selected_countries = st.sidebar.multiselect("Select Country(ies)", all_countries, default=all_countries)
     else:
         st.sidebar.warning("Column 'Country' not found for filtering.")
-        selected_countries = df['Country'].unique().tolist() if 'Country' in df.columns else []
+        selected_countries = [] # No countries to filter if column is missing
 
     # Year Filter
     all_years = sorted(df['Year'].unique().tolist())
@@ -102,15 +101,13 @@ if df is not None:
     # Apply filters
     filtered_df = df[
         (df['Year'].isin(selected_years))
-    ]
+    ].copy() # Use .copy() to avoid SettingWithCopyWarning
 
     # Conditionally apply segment and country filters only if the columns exist and selections are made
     if 'Segment' in df.columns and selected_segments:
         filtered_df = filtered_df[filtered_df['Segment'].isin(selected_segments)]
     if 'Country' in df.columns and selected_countries:
         filtered_df = filtered_df[filtered_df['Country'].isin(selected_countries)]
-
-    filtered_df = filtered_df.copy() # Use .copy() to avoid SettingWithCopyWarning
 
     if filtered_df.empty:
         st.warning("No data matches the selected filters. Please adjust your selections.")
@@ -137,7 +134,7 @@ if df is not None:
 
     with kpi_col1:
         st.metric("Total Units Sold", f"{total_units_sold:,.0f}")
-    with kpi2:
+    with kpi_col2: # Corrected from `kpi2` to `kpi_col2`
         st.metric("Total Gross Sale", f"${total_gross_sale:,.2f}")
     with kpi_col3:
         st.metric("Total Profit", f"${total_profit:,.2f}")
@@ -153,7 +150,7 @@ if df is not None:
 
     with chart_col1:
         st.subheader("Profit by Quarter (Clustered Bar Chart)")
-        if 'Quarter' in filtered_df.columns and 'Profit' in filtered_df.columns:
+        if 'Quarter' in filtered_df.columns and 'Profit' in filtered_df.columns and not filtered_df.empty:
             quarterly_profit = filtered_df.groupby(['Year', 'Quarter'])['Profit'].sum().reset_index()
             # Ensure proper sorting for plotting
             quarterly_profit['Quarter_Label'] = quarterly_profit['Year'].astype(str) + ' Q' + quarterly_profit['Quarter'].astype(str)
@@ -174,12 +171,12 @@ if df is not None:
                 st.pyplot(fig_quarter)
                 plt.close(fig_quarter)
         else:
-            st.warning("Cannot generate Quarterly Profit chart: 'Quarter' or 'Profit' column missing.")
+            st.warning("Cannot generate Quarterly Profit chart: Required columns ('Quarter', 'Profit') missing or no data.")
 
 
     with chart_col2:
         st.subheader("Profit by Month (Area Chart)")
-        if 'Month Number' in filtered_df.columns and 'Month Name' in filtered_df.columns and 'Profit' in filtered_df.columns:
+        if 'Month Number' in filtered_df.columns and 'Month Name' in filtered_df.columns and 'Profit' in filtered_df.columns and not filtered_df.empty:
             # Group by Year, Month Number, and Month Name to ensure correct chronological order
             monthly_profit = filtered_df.groupby(['Year', 'Month Number', 'Month Name'])['Profit'].sum().reset_index()
             monthly_profit = monthly_profit.sort_values(by=['Year', 'Month Number'])
@@ -188,9 +185,9 @@ if df is not None:
                 st.warning("No monthly profit data based on current filters.")
             else:
                 fig_month, ax_month = plt.subplots(figsize=(12, 6))
-                # Use 'Month Name' for x-axis, but ensure order is by 'Month Number'
-                # Ensure all 12 months are represented on the x-axis, even if no data
-                month_order = [calendar.month_name[i] for i in range(1, 13)]
+                # Ensure all 12 months are represented on the x-axis, even if no data for a specific month
+                month_order_labels = [calendar.month_name[i] for i in range(1, 13)] # Full month names
+                
                 sns.lineplot(x='Month Name', y='Profit', hue='Year', data=monthly_profit, marker='o', ax=ax_month, palette='magma', errorbar=None)
                 ax_month.set_title('Profit by Month')
                 ax_month.set_xlabel('Month')
@@ -198,14 +195,14 @@ if df is not None:
                 ax_month.tick_params(axis='x', rotation=45)
                 ax_month.grid(True, linestyle='--')
                 # Set x-axis labels to be in calendar order for consistency
-                ax_month.set_xticks(range(len(month_order)))
-                ax_month.set_xticklabels(month_order)
+                ax_month.set_xticks(range(len(month_order_labels)))
+                ax_month.set_xticklabels(month_order_labels)
                 ax_month.legend(title='Year', bbox_to_anchor=(1.05, 1), loc='upper left')
                 plt.tight_layout()
                 st.pyplot(fig_month)
                 plt.close(fig_month)
         else:
-            st.warning("Cannot generate Monthly Profit chart: 'Month Number', 'Month Name', or 'Profit' column missing.")
+            st.warning("Cannot generate Monthly Profit chart: Required columns ('Month Number', 'Month Name', 'Profit') missing or no data.")
 
     st.markdown("---")
 
@@ -214,7 +211,7 @@ if df is not None:
 
     with chart_col3:
         st.subheader("Total Sales by Segment")
-        if 'Segment' in filtered_df.columns and 'Sales' in filtered_df.columns:
+        if 'Segment' in filtered_df.columns and 'Sales' in filtered_df.columns and not filtered_df.empty:
             sales_by_segment = filtered_df.groupby('Segment')['Sales'].sum().sort_values(ascending=False).reset_index()
             if sales_by_segment.empty:
                 st.warning("No sales by segment data based on current filters.")
@@ -229,11 +226,11 @@ if df is not None:
                 st.pyplot(fig_segment)
                 plt.close(fig_segment)
         else:
-            st.warning("Cannot generate Sales by Segment chart: 'Segment' or 'Sales' column missing.")
+            st.warning("Cannot generate Sales by Segment chart: Required columns ('Segment', 'Sales') missing or no data.")
 
     with chart_col4:
         st.subheader("Total Profit by Country")
-        if 'Country' in filtered_df.columns and 'Profit' in filtered_df.columns:
+        if 'Country' in filtered_df.columns and 'Profit' in filtered_df.columns and not filtered_df.empty:
             profit_by_country = filtered_df.groupby('Country')['Profit'].sum().sort_values(ascending=False).reset_index()
             if profit_by_country.empty:
                 st.warning("No profit by country data based on current filters.")
@@ -248,7 +245,7 @@ if df is not None:
                 st.pyplot(fig_country)
                 plt.close(fig_country)
         else:
-            st.warning("Cannot generate Profit by Country chart: 'Country' or 'Profit' column missing.")
+            st.warning("Cannot generate Profit by Country chart: Required columns ('Country', 'Profit') missing or no data.")
 
 st.sidebar.markdown("---")
 st.sidebar.info("Dashboard created using Streamlit, Pandas, Matplotlib, and Seaborn.")
