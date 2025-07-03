@@ -168,12 +168,4 @@ if df is not None:
 
     with chart_col1:
         st.subheader("Profit by Quarter (Clustered Bar Chart)")
-        if 'Quarter' in filtered_df.columns and " Profit " in filtered_df.columns and not filtered_df.empty:
-            quarterly_profit = filtered_df.groupby(['Year', 'Quarter'])[" Profit "].sum().reset_index()
-            # Ensure proper sorting for plotting
-            quarterly_profit['Quarter_Label'] = quarterly_profit['Year'].astype(str) + ' Q' + quarterly_profit['Quarter'].astype(str)
-            # Sort by Year and Quarter for correct bar order
-            quarterly_profit = quarterly_profit.sort_values(by=['Year', 'Quarter'])
-
-            if quarterly_profit.empty:
-                st.warning("No quarterly profit data
+        if 'Quarter' in filtered_df.columns and " Profit " in filtered_df.
