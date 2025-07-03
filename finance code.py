@@ -18,6 +18,9 @@ df = None # Initialize df outside the if block
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
+        # --- ADD THIS LINE TO DEBUG YOUR COLUMN NAMES ---
+        st.write("Columns in your uploaded CSV:", df.columns.tolist())
+        # --- END OF DEBUG LINE ---
         st.sidebar.success("CSV loaded successfully!")
     except Exception as e:
         st.error(f"Error loading CSV file: {e}. Please ensure it's a valid CSV.")
@@ -41,9 +44,8 @@ if df is not None:
         st.stop()
 
     # Define columns expected to be numeric
-    # IMPORTANT: Ensure these column names exactly match your CSV headers (case-sensitive)
-    # If your CSV uses different names (e.g., 'Units_Sold' instead of 'Units Sold'),
-    # you MUST adjust this list accordingly.
+    # IMPORTANT: After running the app with the debug line, compare the list of columns
+    # printed by Streamlit with this list. They MUST match exactly (case, spaces, spelling).
     expected_numeric_cols = [
         'Units Sold', 'Manufacturing Price', 'Sale Price', 'Gross Sales',
         'Discounts', 'Sales', 'COGS', 'Profit'
@@ -54,13 +56,13 @@ if df is not None:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         else:
+            # This warning will appear if a column from `expected_numeric_cols` is missing
             st.warning(f"Warning: Column '{col}' not found in your CSV. It will be skipped for numerical calculations.")
             # If a critical column is missing, you might want to stop or handle differently
             # For now, it will just not be used in calculations if it's missing.
 
     # Ensure essential columns for calculations exist after processing
     # If any of these are still missing, subsequent calculations might fail or be incorrect.
-    # We will assume 'Gross Sales', 'Sales', 'Profit', 'Units Sold' are crucial.
     required_cols = ['Gross Sales', 'Sales', 'Profit', 'Units Sold']
     for col in required_cols:
         if col not in df.columns:
@@ -135,7 +137,7 @@ if df is not None:
 
     with kpi_col1:
         st.metric("Total Units Sold", f"{total_units_sold:,.0f}")
-    with kpi_col2:
+    with kpi2:
         st.metric("Total Gross Sale", f"${total_gross_sale:,.2f}")
     with kpi_col3:
         st.metric("Total Profit", f"${total_profit:,.2f}")
