@@ -145,4 +145,64 @@ if df is not None:
     if 'Segment' in df.columns and selected_segments:
         filtered_df = filtered_df[filtered_df['Segment'].isin(selected_segments)]
     if 'Country' in df.columns and selected_countries:
-        filtered_df = filtered_df[filtered_df['Country'].isin(selected
+        # Fixed: Closing parenthesis and square bracket were missing
+        filtered_df = filtered_df[filtered_df['Country'].isin(selected_countries)]
+    
+    # --- APPLY NEW FILTERS ---
+    if ' Product ' in df.columns and selected_products:
+        filtered_df = filtered_df[filtered_df[' Product '].isin(selected_products)]
+    if ' Discount Band ' in df.columns and selected_discount_bands:
+        filtered_df = filtered_df[filtered_df[' Discount Band '].isin(selected_discount_bands)]
+    # --- END APPLY NEW FILTERS ---
+
+    if filtered_df.empty:
+        st.warning("No data matches the selected filters. Please adjust your selections.")
+        st.stop()
+
+    # --- Reset Filters Button ---
+    if st.sidebar.button("Reset All Filters"):
+        st.experimental_rerun() # This will re-run the script with default selections
+
+    # --- 2. Key Performance Indicators (KPIs) ---
+    st.subheader("Key Performance Indicators")
+
+    # Calculate KPIs from filtered data (using the adjusted column names)
+    total_units_sold = filtered_df[" Units Sold "].sum() if " Units Sold " in filtered_df.columns else 0
+    total_gross_sale = filtered_df[" Gross Sales "].sum() if " Gross Sales " in filtered_df.columns else 0
+    total_profit = filtered_df[" Profit "].sum() if " Profit " in filtered_df.columns else 0
+    total_sales_for_margin = filtered_df["  Sales "].sum() if "  Sales " in filtered_df.columns else 0
+
+    profit_margin = (total_profit / total_sales_for_margin * 100) if total_sales_for_margin > 0 else 0
+
+    # Display KPIs using st.metric
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+
+    with kpi_col1:
+        st.metric("Total Units Sold", f"{total_units_sold:,.0f}")
+    with kpi_col2:
+        st.metric("Total Gross Sale", f"${total_gross_sale:,.2f}")
+    with kpi_col3:
+        st.metric("Total Profit", f"${total_profit:,.2f}")
+    with kpi_col4:
+        st.metric("Profit Margin", f"{profit_margin:,.2f}%")
+
+    st.markdown("---")
+
+    # --- 3. Charts ---
+
+    # Row 1 of charts: Quarterly Profit and Monthly Profit
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.subheader("Profit by Quarter (Clustered Bar Chart)")
+        if 'Quarter' in filtered_df.columns and " Profit " in filtered_df.columns and not filtered_df.empty:
+            quarterly_profit = filtered_df.groupby(['Year', 'Quarter'])[" Profit "].sum().reset_index()
+            # Ensure proper sorting for plotting
+            quarterly_profit['Quarter_Label'] = quarterly_profit['Year'].astype(str) + ' Q' + quarterly_profit['Quarter'].astype(str)
+            # Sort by Year and Quarter for correct bar order
+            quarterly_profit = quarterly_profit.sort_values(by=['Year', 'Quarter'])
+
+            if quarterly_profit.empty:
+                st.warning("No quarterly profit data based on current filters.")
+            else:
+                fig_quarter, ax_quarter = plt.subplots(figsize=(12,
